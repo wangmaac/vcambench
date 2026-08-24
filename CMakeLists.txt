@@ -85,6 +85,17 @@ target_link_libraries(vcamctl PRIVATE mfsensorgroup mfplat mfuuid mf ole32 oleau
 target_include_directories(vcamctl PRIVATE src include)
 
 # ---------------------------------------------------------------------------
+# vcambench - the GUI users run. WIN32 subsystem so launching it does not flash
+# a console window.
+# ---------------------------------------------------------------------------
+add_executable(vcambench WIN32
+  src/vcamapp/gui_main.cpp
+  src/vcamapp/camera_manager.cpp
+)
+target_link_libraries(vcambench PRIVATE mfsensorgroup mfplat mfuuid mf ole32 oleaut32)
+target_include_directories(vcambench PRIVATE src include)
+
+# ---------------------------------------------------------------------------
 # Diagnostics kept from the prototype: they are how every claim about this
 # project has been checked.
 # ---------------------------------------------------------------------------
