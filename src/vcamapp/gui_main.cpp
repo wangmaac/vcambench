@@ -31,6 +31,12 @@ enum ControlId : int {
 
 constexpr wchar_t kWindowClass[] = L"VCamBenchMainWindow";
 
+// Two instances would each suggest "VCamBench 1" and happily create two cameras
+// with the same name that nobody can tell apart - the duplicate check only sees
+// this process's own list. The installer uses the same name to notice a running
+// copy before it replaces files.
+constexpr wchar_t kSingleInstanceMutex[] = L"Local\\VCamBenchSingleInstance";
+
 vcam::CameraManager* g_manager = nullptr;
 HFONT g_font = nullptr;
 
@@ -267,6 +273,18 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam) 
 
 int APIENTRY wWinMain(HINSTANCE instance, HINSTANCE, LPWSTR, int showCommand) {
   ::SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+
+  // Held for the life of the process; released by Windows when it exits.
+  HANDLE single = ::CreateMutexW(nullptr, TRUE, kSingleInstanceMutex);
+  if (single && ::GetLastError() == ERROR_ALREADY_EXISTS) {
+    HWND existing = ::FindWindowW(kWindowClass, nullptr);
+    if (existing) {
+      if (::IsIconic(existing)) ::ShowWindow(existing, SW_RESTORE);
+      ::SetForegroundWindow(existing);
+    }
+    ::CloseHandle(single);
+    return 0;
+  }
 
   HRESULT hr = ::CoInitializeEx(nullptr, COINIT_MULTITHREADED);
   if (FAILED(hr)) {
