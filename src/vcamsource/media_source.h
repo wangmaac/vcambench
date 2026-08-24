@@ -9,6 +9,7 @@
 #include <wrl/implements.h>
 
 #include <mutex>
+#include <string>
 
 #include "media_stream.h"
 
@@ -33,7 +34,8 @@ class VCamMediaSource
   VCamMediaSource();
   ~VCamMediaSource() override;
 
-  HRESULT RuntimeClassInitialize();
+  // `friendlyName` is the camera name Windows hands us at activation.
+  HRESULT RuntimeClassInitialize(const std::wstring& friendlyName);
 
   // IMFMediaEventGenerator
   IFACEMETHODIMP BeginGetEvent(IMFAsyncCallback* callback, IUnknown* state) override;
@@ -70,7 +72,7 @@ class VCamMediaSource
 
  private:
   HRESULT CheckShutdown() const;
-  HRESULT BuildTopology();
+  HRESULT BuildTopology(const std::wstring& friendlyName);
 
   mutable std::mutex mutex_;
   bool shutdown_ = false;

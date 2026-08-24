@@ -1,3 +1,5 @@
 build/
 tools/_run.ps1
 tools/register.log
+tools/restart.log
+tools/drop.log

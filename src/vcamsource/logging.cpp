@@ -14,21 +14,51 @@ bool g_lockReady = false;
 bool g_fileTried = false;
 HANDLE g_file = INVALID_HANDLE_VALUE;
 
+HANDLE TryOpen(const wchar_t* path) {
+  return ::CreateFileW(path, FILE_APPEND_DATA, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr,
+                       OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+}
+
 void OpenLogFile() {
-  wchar_t dir[MAX_PATH] = {};
-  DWORD n = ::GetEnvironmentVariableW(L"ProgramData", dir, MAX_PATH);
-  if (n == 0 || n >= MAX_PATH) return;
-
   wchar_t path[MAX_PATH] = {};
-  if (::swprintf_s(path, L"%s\\VCamBench", dir) < 0) return;
-  ::CreateDirectoryW(path, nullptr);  // may already exist, or may fail: fine
 
-  if (::swprintf_s(path, L"%s\\VCamBench\\vcamsource.log", dir) < 0) return;
+  // Preferred: a shared location the installer grants the Frame Server's
+  // service account write access to.
+  wchar_t dir[MAX_PATH] = {};
+  const DWORD n = ::GetEnvironmentVariableW(L"ProgramData", dir, MAX_PATH);
+  if (n > 0 && n < MAX_PATH) {
+    if (::swprintf_s(path, L"%s\\VCamBench", dir) > 0) {
+      ::CreateDirectoryW(path, nullptr);  // may already exist, or may fail: fine
+    }
+    if (::swprintf_s(path, L"%s\\VCamBench\\vcamsource.log", dir) > 0) {
+      g_file = TryOpen(path);
+      if (g_file != INVALID_HANDLE_VALUE) return;
+    }
+  }
 
-  // Best effort. Under the Frame Server's service account this often fails,
-  // which is exactly why OutputDebugString is the primary sink.
-  g_file = ::CreateFileW(path, FILE_APPEND_DATA, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr,
-                         OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+  // Fallback: next to the DLL. Covers development and portable layouts, and the
+  // case where an elevated installer created the ProgramData file with an ACL
+  // the service account cannot append to. Logging is diagnostics - it must
+  // never take the camera down with it.
+  HMODULE self = nullptr;
+  if (!::GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+                                GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                            reinterpret_cast<LPCWSTR>(&OpenLogFile), &self) ||
+      self == nullptr) {
+    return;
+  }
+
+  wchar_t modulePath[MAX_PATH] = {};
+  const DWORD len = ::GetModuleFileNameW(self, modulePath, MAX_PATH);
+  if (len == 0 || len >= MAX_PATH) return;
+
+  wchar_t* slash = ::wcsrchr(modulePath, L'\\');
+  if (!slash) return;
+  *slash = L'\0';
+
+  if (::swprintf_s(path, L"%s\\vcamsource.log", modulePath) > 0) {
+    g_file = TryOpen(path);
+  }
 }
 
 void WriteLine(const char* text) {

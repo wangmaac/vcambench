@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 
+#include "vcamcore/font5x7.h"
 #include "vcamcore/frame_pattern.h"
 
 namespace {
@@ -252,6 +253,45 @@ void TestColourBarsAreColoured() {
   CHECK(distinct >= 6);
 }
 
+// Regression: a camera whose name ends in a digit must draw that digit.
+//
+// Cameras are told apart on screen only by this label, so a renderer that
+// quietly drops the last glyph makes every camera look identical - which is
+// exactly the symptom this was written for.
+void TestLabelDrawsEveryGlyph() {
+  std::printf("label draws its last glyph\n");
+
+  const int W = 1280;
+  const int H = 720;
+  GuardedFrame f(W, H, 0);
+  vcamcore::Nv12Target t = f.target();
+  vcamcore::RenderFrame(t, 0, 0, "VCamBench 1");
+
+  // Layout mirrors RenderFrame: label sits at x = W/20, y = 35% + H/40,
+  // drawn at scale (H/120)/2 with a 6px-per-character advance.
+  const int scale = (H / 120) / 2;
+  const int advance = (vcamcore::kGlyphW + 1) * scale;
+  const int originX = W / 20;
+  const int originY = H * 35 / 100 + H / 40;
+
+  const auto hasInk = [&](int charIndex) {
+    const int x0 = originX + charIndex * advance;
+    for (int y = originY; y < originY + vcamcore::kGlyphH * scale; ++y) {
+      for (int x = x0; x < x0 + vcamcore::kGlyphW * scale; ++x) {
+        if (f.yPlane()[static_cast<size_t>(y) * f.yStride + x] > 200) return true;
+      }
+    }
+    return false;
+  };
+
+  // "VCamBench 1": V at 0, H at 8, space at 9, the digit at 10.
+  CHECK(hasInk(0));    // first glyph
+  CHECK(hasInk(8));    // last letter
+  CHECK(!hasInk(9));   // the space really is blank
+  if (!hasInk(10)) std::printf("  (the trailing digit was not drawn)\n");
+  CHECK(hasInk(10));   // the digit that tells cameras apart
+}
+
 void TestNullLabelIsSafe() {
   std::printf("null label is safe\n");
   GuardedFrame f(320, 240, 8);
@@ -275,6 +315,7 @@ int main() {
   TestFrameIndexChangesPixels();
   TestTimeChangesPixels();
   TestColourBarsAreColoured();
+  TestLabelDrawsEveryGlyph();
   TestNullLabelIsSafe();
 
   std::printf("\n%d checks, %d failure(s)\n", g_checks, g_failures);

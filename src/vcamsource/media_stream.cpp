@@ -16,10 +16,6 @@ namespace {
 constexpr LONGLONG kFrameDuration100ns =
     10000000LL * vcamcore::kFpsDenominator / vcamcore::kFpsNumerator;
 
-// Placeholder. Every camera currently draws the same label because the media
-// source runs inside the Frame Server and has no channel back to the host that
-// created it. Giving each camera its own on-screen name is the next task.
-constexpr const char* kStreamLabel = VCAM_PRODUCT_NAME_A;
 
 }  // namespace
 
@@ -33,8 +29,10 @@ VCamMediaStream::~VCamMediaStream() {
 }
 
 HRESULT VCamMediaStream::RuntimeClassInitialize(IMFMediaSource* parent,
-                                                IMFStreamDescriptor* descriptor) {
+                                                IMFStreamDescriptor* descriptor,
+                                                std::string label) {
   if (!parent || !descriptor) return E_POINTER;
+  label_ = std::move(label);
 
   HRESULT hr = ::MFCreateEventQueue(&eventQueue_);
   if (FAILED(hr)) {
@@ -314,7 +312,7 @@ HRESULT VCamMediaStream::DeliverOneFrame(IUnknown* token, uint64_t frameIndex,
 
     const uint64_t elapsedMs =
         static_cast<uint64_t>((sampleTime - startTime_) / 10000);
-    vcamcore::RenderFrame(target, frameIndex, elapsedMs, kStreamLabel);
+    vcamcore::RenderFrame(target, frameIndex, elapsedMs, label_.c_str());
   } else {
     // Bottom-up or unusable layout. Skipping the frame beats writing to a
     // pointer whose geometry we have guessed at.

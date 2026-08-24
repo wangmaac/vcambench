@@ -60,6 +60,7 @@ target_include_directories(vcamcommon PUBLIC src)
 # vcamsource.dll - the COM in-proc media source the Frame Server loads.
 # ---------------------------------------------------------------------------
 add_library(vcamsource SHARED
+  src/vcamsource/attr_dump.cpp
   src/vcamsource/dllmain.cpp
   src/vcamsource/logging.cpp
   src/vcamsource/media_source.cpp
@@ -98,3 +99,13 @@ endif()
 add_executable(camcapture src/camcapture/main.cpp)
 target_link_libraries(camcapture PRIVATE vcamcommon mfplat mfuuid mf mfreadwrite ole32 oleaut32)
 target_include_directories(camcapture PRIVATE src)
+
+# ---------------------------------------------------------------------------
+# vcamprobe - loads vcamsource.dll directly, with no registry and no Frame
+# Server, and saves what the media source actually renders. When the pipeline
+# and the source disagree, this is what tells them apart.
+# ---------------------------------------------------------------------------
+add_executable(vcamprobe src/vcamprobe/main.cpp)
+target_link_libraries(vcamprobe PRIVATE vcamcommon mfplat mfuuid mf ole32 oleaut32)
+target_include_directories(vcamprobe PRIVATE src include)
+add_dependencies(vcamprobe vcamsource)

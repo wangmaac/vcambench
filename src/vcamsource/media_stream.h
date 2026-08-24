@@ -11,6 +11,7 @@
 #include <condition_variable>
 #include <cstdint>
 #include <deque>
+#include <string>
 #include <mutex>
 #include <thread>
 
@@ -33,7 +34,9 @@ class VCamMediaStream
 
   // `parent` is held as a raw pointer on purpose: the source owns this stream,
   // and a strong reference back would be an unbreakable cycle.
-  HRESULT RuntimeClassInitialize(IMFMediaSource* parent, IMFStreamDescriptor* descriptor);
+  // `label` is drawn on every frame so a viewer can tell which camera this is.
+  HRESULT RuntimeClassInitialize(IMFMediaSource* parent, IMFStreamDescriptor* descriptor,
+                                 std::string label);
 
   // IMFMediaEventGenerator
   IFACEMETHODIMP BeginGetEvent(IMFAsyncCallback* callback, IUnknown* state) override;
@@ -76,6 +79,7 @@ class VCamMediaStream
   bool threadStopRequested_ = false;
   MF_STREAM_STATE state_ = MF_STREAM_STATE_STOPPED;
 
+  std::string label_;
   uint64_t frameIndex_ = 0;
   LONGLONG startTime_ = 0;  // MFGetSystemTime units (100ns)
 };

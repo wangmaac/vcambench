@@ -2,6 +2,9 @@
 
 #include <mfobjects.h>
 
+#include <string>
+
+#include "attr_dump.h"
 #include "logging.h"
 #include "module.h"
 #include "vcam_guids.h"
@@ -12,6 +15,22 @@ using Microsoft::WRL::MakeAndInitialize;
 
 namespace vcam {
 namespace {
+
+// The on-screen font covers ASCII only, so a name Windows accepts happily (say,
+// Korean) can render as nothing at all. Convert what we can and fall back to
+// the product name rather than shipping a camera with a blank label.
+std::string LabelFromFriendlyName(const std::wstring& name) {
+  std::string narrow;
+  narrow.reserve(name.size());
+  for (wchar_t wc : name) {
+    if (wc >= 32 && wc < 127) narrow.push_back(static_cast<char>(wc));
+  }
+  while (!narrow.empty() && narrow.back() == ' ') narrow.pop_back();
+  size_t start = narrow.find_first_not_of(' ');
+  if (start == std::string::npos) return VCAM_PRODUCT_NAME_A;
+  narrow = narrow.substr(start);
+  return narrow.empty() ? VCAM_PRODUCT_NAME_A : narrow;
+}
 
 HRESULT CreateVideoMediaType(IMFMediaType** out) {
   ComPtr<IMFMediaType> type;
@@ -58,7 +77,7 @@ VCamMediaSource::~VCamMediaSource() {
   ModuleRelease();
 }
 
-HRESULT VCamMediaSource::RuntimeClassInitialize() {
+HRESULT VCamMediaSource::RuntimeClassInitialize(const std::wstring& friendlyName) {
   HRESULT hr = ::MFCreateEventQueue(&eventQueue_);
   if (FAILED(hr)) {
     LogHr("MFCreateEventQueue(source)", hr);
@@ -69,17 +88,18 @@ HRESULT VCamMediaSource::RuntimeClassInitialize() {
     LogHr("MFCreateAttributes(source)", hr);
     return hr;
   }
-  hr = BuildTopology();
+  hr = BuildTopology(friendlyName);
   if (FAILED(hr)) {
     LogHr("BuildTopology", hr);
     return hr;
   }
-  Logf("media source created (%dx%d NV12 %d fps)", vcamcore::kDefaultWidth,
-       vcamcore::kDefaultHeight, vcamcore::kFpsNumerator / vcamcore::kFpsDenominator);
+  Logf("media source created for \"%ls\" (%dx%d NV12 %d fps)", friendlyName.c_str(),
+       vcamcore::kDefaultWidth, vcamcore::kDefaultHeight,
+       vcamcore::kFpsNumerator / vcamcore::kFpsDenominator);
   return S_OK;
 }
 
-HRESULT VCamMediaSource::BuildTopology() {
+HRESULT VCamMediaSource::BuildTopology(const std::wstring& friendlyName) {
   ComPtr<IMFMediaType> mediaType;
   HRESULT hr = CreateVideoMediaType(&mediaType);
   if (FAILED(hr)) return hr;
@@ -112,7 +132,8 @@ HRESULT VCamMediaSource::BuildTopology() {
   hr = presentationDescriptor_->SelectStream(0);
   if (FAILED(hr)) return hr;
 
-  return MakeAndInitialize<VCamMediaStream>(&stream_, this, streamDescriptor_.Get());
+  return MakeAndInitialize<VCamMediaStream>(&stream_, this, streamDescriptor_.Get(),
+                                            LabelFromFriendlyName(friendlyName));
 }
 
 HRESULT VCamMediaSource::CheckShutdown() const {
@@ -378,7 +399,28 @@ IFACEMETHODIMP VCamActivate::ActivateObject(REFIID riid, void** object) {
 
   std::lock_guard<std::mutex> lock(mutex_);
   if (!source_) {
-    HRESULT hr = MakeAndInitialize<VCamMediaSource>(&source_);
+    // This is the only place Windows tells us *which* camera we are. Several
+    // cameras share this one CLSID, and the frame server distinguishes them by
+    // putting the friendly name on the activate object before calling us.
+    std::wstring friendlyName;
+    if (attributes_) {
+      wchar_t* name = nullptr;
+      UINT32 len = 0;
+      if (SUCCEEDED(attributes_->GetAllocatedString(MF_DEVSOURCE_ATTRIBUTE_FRIENDLY_NAME, &name,
+                                                    &len)) &&
+          name) {
+        friendlyName.assign(name, len);
+        ::CoTaskMemFree(name);
+      }
+    }
+    if (friendlyName.empty()) {
+      // Should not happen, but a nameless camera beats no camera.
+      Logf("활성화 시점에 이름이 없습니다. 속성 목록:");
+      LogAttributes("activate attributes", attributes_.Get());
+      friendlyName = VCAM_PRODUCT_NAME;
+    }
+
+    HRESULT hr = MakeAndInitialize<VCamMediaSource>(&source_, friendlyName);
     if (FAILED(hr)) {
       LogHr("MakeAndInitialize<VCamMediaSource>", hr);
       return hr;
