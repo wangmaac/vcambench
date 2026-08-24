@@ -1,4 +1,3 @@
-spike/msix/build/
-media/cam1/
-media/cam2/
-media/filter.txt
+build/
+tools/_run.ps1
+tools/register.log
