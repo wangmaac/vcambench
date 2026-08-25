@@ -130,4 +130,4 @@ Microsoft Store 판매는 **편의에 대한 비용**입니다 — 서명된 설
 자동 업데이트.
 
 직접 빌드해서 쓰시는 분 중 도움이 됐다면
-[GitHub Sponsors](https://github.com/sponsors/<GITHUB-USERNAME>)로 후원해 주세요.
+[GitHub Sponsors](https://github.com/sponsors/wangmaac)로 후원해 주세요.
