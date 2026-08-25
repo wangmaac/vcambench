@@ -15,7 +15,7 @@
 ; Signed: ISCC.exe /DSIGN installer\vcambench.iss   (needs a configured SignTool)
 
 #define AppName        "VCamBench"
-#define AppVersion     "0.1.0"
+#define AppVersion     "0.1.1"
 #define AppPublisher   "VCamBench"
 #define AppExeName     "vcambench.exe"
 #define BuildDir       "..\build\Release"
