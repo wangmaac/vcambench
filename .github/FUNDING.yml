@@ -1,3 +1,2 @@
-# 저장소 우측에 Sponsor 버튼을 띄운다.
-# <GITHUB-USERNAME> 을 실제 사용자명으로 바꾼 뒤 커밋할 것.
-github: [<GITHUB-USERNAME>]
+# 저장소 우측 상단에 GitHub 공식 Sponsor 버튼을 띄운다.
+github: [wangmaac]
