@@ -1,4 +1,27 @@
+# 빌드 산출물
 build/
 dist/
+
+# 개발 중에만 쓰는 것 — 로그에는 로컬 경로와 사용자 이름이 남는다
 tools/_run.ps1
 tools/*.log
+
+# 에이전트/에디터 작업 폴더. 세션 메모와 로컬 설정이 들어가므로 공개 대상이 아니다
+.claude/
+.vs/
+.vscode/
+
+# 폐기된 실험 코드. 남겨두더라도 공개 저장소에 올릴 것은 아니다
+spike/
+
+# 개인용 문서와 자격증명. 이 저장소에는 어떤 형태로도 들어오면 안 된다
+*.local.*
+*-private*
+private/
+notes/
+docs/internal/
+.env
+.env.*
+*.pfx
+*.p12
+*.snk
