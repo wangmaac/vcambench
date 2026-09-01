@@ -147,6 +147,19 @@ if(VCAM_CPPWINRT_INCLUDE_DIR)
   target_include_directories(camlist PRIVATE "${VCAM_CPPWINRT_INCLUDE_DIR}")
   target_compile_definitions(camlist PRIVATE VCAM_HAVE_CPPWINRT=1)
   target_link_libraries(camlist PRIVATE windowsapp)
+  # C++20, and only for this target. C++/WinRT's base.h needs coroutine
+  # support; in C++17 mode it reaches for <experimental/coroutine>, which the
+  # MSVC 14.51 STL rejects outright:
+  #
+  #   error C2338: STL1011: ... deprecated ... will be REMOVED SOON.
+  #   They are superseded by the C++20 <coroutine> ... headers.
+  #
+  # Silencing it with _SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS
+  # would keep depending on a header Microsoft is removing. Raising the
+  # standard is the fix the message asks for. The rest of the project stays on
+  # C++17 - nothing else includes C++/WinRT, and the media source that loads
+  # into svchost is not worth disturbing for this.
+  set_property(TARGET camlist PROPERTY CXX_STANDARD 20)
 endif()
 vcam_add_version_resource(camlist APP "VCamBench camera enumeration diagnostic")
 

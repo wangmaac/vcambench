@@ -65,8 +65,22 @@ jobs:
           cmake -S . -B build -A x64
           Get-Content build\CMakeCache.txt | Select-String '^CMAKE_GENERATOR(_PLATFORM)?:'
 
+      # Compiler errors are echoed back as ::error:: annotations. The full log
+      # is only readable by someone signed in with access to the repository,
+      # but annotations are public - so a failure here can be diagnosed from
+      # the API instead of by someone copying the log out of the web UI.
       - name: Build
-        run: cmake --build build --config Release
+        shell: pwsh
+        run: |
+          $out = cmake --build build --config Release 2>&1
+          $code = $LASTEXITCODE
+          $out | ForEach-Object { "$_" }
+          if ($code -ne 0) {
+            $out | Select-String -Pattern 'error [A-Z]*\d+|fatal error|LNK\d+' |
+              Select-Object -First 20 |
+              ForEach-Object { "::error::" + ($_.ToString().Trim()) }
+            exit $code
+          }
 
       - name: Test
         run: .\build\Release\vcamcore_tests.exe
@@ -87,8 +101,19 @@ jobs:
           }
           if ($bad) { throw "version metadata wrong:`n" + ($bad -join "`n") }
 
-      - name: Install Inno Setup
-        run: choco install innosetup --no-progress -y
+      # The runner image already ships Inno Setup, so this normally does
+      # nothing. It stays because the image is not a contract - the same kind
+      # of drift that moved this job from VS 2022 to VS 2026 could remove it.
+      - name: Ensure Inno Setup
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (Test-Path $iscc) {
+            "already present: $((Get-Item $iscc).VersionInfo.ProductVersion)"
+          } else {
+            choco install innosetup --no-progress -y
+            if (-not (Test-Path $iscc)) { throw "Inno Setup still missing at $iscc" }
+          }
 
       - name: Build installer
         run: '& "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" installer\vcambench.iss'
