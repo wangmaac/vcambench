@@ -141,14 +141,30 @@ jobs:
           path: artifacts
 
       # gh is preinstalled on the runner, so attaching the file needs no
-      # third-party action. The release itself is created by hand: the notes are
-      # written per release and are not worth generating.
+      # third-party action.
+      #
+      # If the release does not exist yet this creates it as a draft rather
+      # than failing. Requiring the release to be made first turned a normal
+      # ordering - tag, then write the notes - into a red X on the tag, and the
+      # installer has to be built before there is anything worth releasing
+      # anyway. A draft publishes nothing: the notes get written by hand, then
+      # published by hand.
       - name: Attach installer to the release
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
         run: |
           set -e
           file=$(find artifacts -name 'VCamBench-*-setup.exe' | head -1)
           test -n "$file" || { echo "no installer in artifacts"; exit 1; }
-          gh release upload "${{ github.ref_name }}" "$file" \
-            --repo "${{ github.repository }}" --clobber
+          echo "installer: $file"
+
+          if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$file" --repo "$REPO" --clobber
+            echo "attached to existing release $TAG"
+          else
+            gh release create "$TAG" "$file" --repo "$REPO" --draft --title "$TAG" \
+              --notes "Draft created by CI. Replace this with the release notes, then publish."
+            echo "created draft release $TAG with the installer attached"
+          fi
