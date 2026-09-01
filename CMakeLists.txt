@@ -1,9 +1,48 @@
 cmake_minimum_required(VERSION 3.20)
-project(vcambench CXX)
+
+# The version lives in one file that both this build and the Inno Setup script
+# read. They disagreed once - the v0.1.1 tag was cut while the installer still
+# declared 0.1.0 - and a single source is the only fix that cannot drift.
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/VERSION" VCAM_VERSION)
+string(STRIP "${VCAM_VERSION}" VCAM_VERSION)
+
+# RC is a language here, not an afterthought: the version resource below is
+# compiled into every shipped binary.
+project(vcambench VERSION ${VCAM_VERSION} LANGUAGES CXX RC)
 
 if(NOT MSVC)
   message(FATAL_ERROR "vcambench targets MSVC / Windows SDK only.")
 endif()
+
+# The resource template wants the parts separately; FILEVERSION is a
+# comma-separated quad, not a string.
+set(VCAM_VERSION_MAJOR ${PROJECT_VERSION_MAJOR})
+set(VCAM_VERSION_MINOR ${PROJECT_VERSION_MINOR})
+set(VCAM_VERSION_PATCH ${PROJECT_VERSION_PATCH})
+message(STATUS "VCamBench version ${VCAM_VERSION}")
+
+# ---------------------------------------------------------------------------
+# vcam_add_version_resource(<target> <APP|DLL> <description>)
+#
+# Gives a binary its Details tab: product name, version, copyright. Windows
+# reads it for the UAC prompt and Task Manager, and SignPath checks ProductName
+# and ProductVersion against the registered project before it will sign.
+# ---------------------------------------------------------------------------
+function(vcam_add_version_resource target kind description)
+  if(kind STREQUAL "DLL")
+    set(VCAM_RC_FILETYPE "VFT_DLL")
+    set(VCAM_RC_FILENAME "${target}.dll")
+  else()
+    set(VCAM_RC_FILETYPE "VFT_APP")
+    set(VCAM_RC_FILENAME "${target}.exe")
+  endif()
+  set(VCAM_RC_NAME "${target}")
+  set(VCAM_RC_DESCRIPTION "${description}")
+
+  set(_out "${CMAKE_CURRENT_BINARY_DIR}/version_${target}.rc")
+  configure_file("${CMAKE_CURRENT_SOURCE_DIR}/cmake/version.rc.in" "${_out}" @ONLY)
+  target_sources(${target} PRIVATE "${_out}")
+endfunction()
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -72,6 +111,7 @@ target_include_directories(vcamsource PRIVATE src)
 # C4458: parameters named `value` (the names the IMFAttributes contract uses)
 # shadow a member of WRL's RuntimeClassFlags.
 target_compile_options(vcamsource PRIVATE /wd4458)
+vcam_add_version_resource(vcamsource DLL "VCamBench virtual camera media source")
 
 # ---------------------------------------------------------------------------
 # vcamctl - console front end for CameraManager. The GUI replaces this later;
@@ -83,6 +123,7 @@ add_executable(vcamctl
 )
 target_link_libraries(vcamctl PRIVATE mfsensorgroup mfplat mfuuid mf ole32 oleaut32)
 target_include_directories(vcamctl PRIVATE src include)
+vcam_add_version_resource(vcamctl APP "VCamBench command line control")
 
 # ---------------------------------------------------------------------------
 # vcambench - the GUI users run. WIN32 subsystem so launching it does not flash
@@ -94,6 +135,7 @@ add_executable(vcambench WIN32
 )
 target_link_libraries(vcambench PRIVATE mfsensorgroup mfplat mfuuid mf ole32 oleaut32)
 target_include_directories(vcambench PRIVATE src include)
+vcam_add_version_resource(vcambench APP "VCamBench virtual camera")
 
 # ---------------------------------------------------------------------------
 # Diagnostics kept from the prototype: they are how every claim about this
@@ -106,10 +148,12 @@ if(VCAM_CPPWINRT_INCLUDE_DIR)
   target_compile_definitions(camlist PRIVATE VCAM_HAVE_CPPWINRT=1)
   target_link_libraries(camlist PRIVATE windowsapp)
 endif()
+vcam_add_version_resource(camlist APP "VCamBench camera enumeration diagnostic")
 
 add_executable(camcapture src/camcapture/main.cpp)
 target_link_libraries(camcapture PRIVATE vcamcommon mfplat mfuuid mf mfreadwrite ole32 oleaut32)
 target_include_directories(camcapture PRIVATE src)
+vcam_add_version_resource(camcapture APP "VCamBench frame capture diagnostic")
 
 # ---------------------------------------------------------------------------
 # vcamprobe - loads vcamsource.dll directly, with no registry and no Frame
@@ -120,3 +164,4 @@ add_executable(vcamprobe src/vcamprobe/main.cpp)
 target_link_libraries(vcamprobe PRIVATE vcamcommon mfplat mfuuid mf ole32 oleaut32)
 target_include_directories(vcamprobe PRIVATE src include)
 add_dependencies(vcamprobe vcamsource)
+vcam_add_version_resource(vcamprobe APP "VCamBench media source probe")

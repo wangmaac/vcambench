@@ -15,7 +15,10 @@
 ; Signed: ISCC.exe /DSIGN installer\vcambench.iss   (needs a configured SignTool)
 
 #define AppName        "VCamBench"
-#define AppVersion     "0.1.1"
+; Read from the same VERSION file CMake reads, so the installer cannot declare a
+; version the binaries do not carry. It happened once: the v0.1.1 tag was cut
+; while this line still said 0.1.0.
+#define AppVersion     Trim(FileRead(FileOpen("..\VERSION")))
 #define AppPublisher   "VCamBench"
 #define AppExeName     "vcambench.exe"
 #define BuildDir       "..\build\Release"

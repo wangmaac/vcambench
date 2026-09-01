@@ -1,0 +1,49 @@
+// Version resource template. CMake fills the @...@ placeholders once per
+// binary; see vcam_add_version_resource() in CMakeLists.txt.
+//
+// Without this block Windows shows nothing in the file's Details tab, the UAC
+// prompt names the file rather than the program, and Task Manager has no
+// description. SignPath also requires it: signing requests are rejected unless
+// ProductName and ProductVersion match the registered project, which is how
+// they stop someone slipping a foreign binary into a signed package.
+//
+// Deliberately ASCII only. rc.exe reads a .rc file in the system codepage
+// unless told otherwise, so non-ASCII text here builds differently on a Korean
+// machine than on an English CI runner - the same class of bug that mangled the
+// PowerShell scripts earlier in this project.
+
+#include <winver.h>
+
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION     @VCAM_VERSION_MAJOR@,@VCAM_VERSION_MINOR@,@VCAM_VERSION_PATCH@,0
+PRODUCTVERSION  @VCAM_VERSION_MAJOR@,@VCAM_VERSION_MINOR@,@VCAM_VERSION_PATCH@,0
+FILEFLAGSMASK   VS_FFI_FILEFLAGSMASK
+#ifdef _DEBUG
+FILEFLAGS       VS_FF_DEBUG
+#else
+FILEFLAGS       0x0L
+#endif
+FILEOS          VOS_NT_WINDOWS32
+FILETYPE        @VCAM_RC_FILETYPE@
+FILESUBTYPE     VFT2_UNKNOWN
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904b0"
+        BEGIN
+            VALUE "CompanyName",      "VCamBench"
+            VALUE "FileDescription",  "@VCAM_RC_DESCRIPTION@"
+            VALUE "FileVersion",      "@VCAM_VERSION@.0"
+            VALUE "InternalName",     "@VCAM_RC_NAME@"
+            VALUE "LegalCopyright",   "Copyright (c) 2026 wangmaac. MIT License."
+            VALUE "OriginalFilename", "@VCAM_RC_FILENAME@"
+            VALUE "ProductName",      "VCamBench"
+            VALUE "ProductVersion",   "@VCAM_VERSION@"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        // 0x0409 = en-US, 1200 = Unicode. Must agree with the block name above.
+        VALUE "Translation", 0x0409, 1200
+    END
+END

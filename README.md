@@ -105,19 +105,32 @@ cmake --build build --config Release
 개발 중 DLL을 고칠 때는 Frame Server가 옛 이미지를 캐시합니다. `tools\`의 스크립트가
 그 상황을 정리해 줍니다 — 이유는 각 스크립트 주석에 있습니다.
 
-## 코드 서명
+## 코드 서명 정책 (Code signing policy)
 
-릴리스 설치 파일은 [SignPath Foundation](https://signpath.org/)이 오픈소스 프로젝트에
-무료로 제공하는 인증서로 [SignPath.io](https://about.signpath.io/)를 통해 서명됩니다.
+Free code signing provided by [SignPath.io](https://about.signpath.io/),
+certificate by [SignPath Foundation](https://signpath.org/).
 
-> **현재 승인 대기 중입니다.** v0.1.0은 아직 서명되어 있지 않아 SmartScreen 경고가
-> 뜹니다. 승인되는 대로 서명된 릴리스를 올립니다.
+릴리스 설치 파일은 GitHub Actions에서 빌드되며([`build.yml`](.github/workflows/build.yml)),
+그 빌드 산출물에만 서명이 붙습니다. 개발자 PC에서 만든 파일은 서명되지 않습니다.
 
-## 개인정보
+**팀 역할 (Roles)**
 
-이 앱은 **어떤 데이터도 수집하지 않습니다.** 네트워크 통신이 없고, 원격으로 보내는
-정보가 없으며, 계정도 필요 없습니다. 유일하게 기록하는 것은 문제 진단용 로컬 로그
-파일(`%ProgramData%\VCamBench\vcamsource.log`)이며 이 PC를 벗어나지 않습니다.
+| | |
+|---|---|
+| Committers and reviewers | [wangmaac](https://github.com/wangmaac) |
+| Approvers | [wangmaac](https://github.com/wangmaac) |
+
+**개인정보 (Privacy policy)**
+
+This program will not transfer any information to other networked systems unless
+specifically requested by the user or the person installing or operating it.
+
+네트워크 통신이 없고, 계정도 필요 없습니다. 유일하게 기록하는 것은 문제 진단용
+로컬 로그 파일(`%ProgramData%\VCamBench\vcamsource.log`)이며 이 PC를 벗어나지
+않습니다.
+
+> **현재 서명 승인 대기 중입니다.** v0.1.1은 아직 서명되어 있지 않아 SmartScreen
+> 경고가 뜹니다. 승인되는 대로 서명된 릴리스를 올립니다.
 
 ## 라이선스
 

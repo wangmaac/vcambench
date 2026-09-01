@@ -1,0 +1,118 @@
+# Builds VCamBench on a clean runner and, for a version tag, produces the
+# installer and attaches it to the release.
+#
+# This exists because of code signing. SignPath will only sign an artifact it
+# can trace to a specific automated build of a specific commit - a Setup.exe
+# built on a maintainer's PC cannot be signed, no matter who built it. So the
+# release artifact has to come from here.
+#
+# No third-party actions are used. Everything is either an official actions/*
+# action or a tool already on the runner, which keeps the supply chain for a
+# soon-to-be-signed binary as short as it can be.
+
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read version
+        id: version
+        shell: pwsh
+        run: |
+          $v = (Get-Content VERSION -Raw).Trim()
+          if ($v -notmatch '^\d+\.\d+\.\d+$') { throw "VERSION is not x.y.z: '$v'" }
+          "version=$v" >> $env:GITHUB_OUTPUT
+          "VCamBench $v"
+
+      # The v0.1.1 tag was once cut while the installer still declared 0.1.0.
+      # A tag that disagrees with VERSION is that same mistake, so fail here
+      # rather than publish a release whose contents contradict its name.
+      - name: Tag must match VERSION
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}" -replace '^v', ''
+          $file = "${{ steps.version.outputs.version }}"
+          if ($tag -ne $file) { throw "tag v$tag does not match VERSION $file" }
+          "tag and VERSION agree: $file"
+
+      - name: Configure
+        run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Test
+        run: .\build\Release\vcamcore_tests.exe
+
+      # SignPath checks these against the registered project before signing, so
+      # a binary that lost its version resource must not reach a release.
+      - name: Verify version metadata
+        shell: pwsh
+        run: |
+          $expected = "${{ steps.version.outputs.version }}"
+          $files = 'vcambench.exe','vcamsource.dll','vcamctl.exe','camlist.exe','camcapture.exe'
+          $bad = @()
+          foreach ($f in $files) {
+            $v = (Get-Item "build\Release\$f").VersionInfo
+            "{0,-18} {1,-11} {2}" -f $f, $v.ProductName, $v.ProductVersion
+            if ($v.ProductName -ne 'VCamBench') { $bad += "$f ProductName='$($v.ProductName)'" }
+            if ($v.ProductVersion -ne $expected) { $bad += "$f ProductVersion='$($v.ProductVersion)'" }
+          }
+          if ($bad) { throw "version metadata wrong:`n" + ($bad -join "`n") }
+
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+
+      - name: Build installer
+        run: '& "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" installer\vcambench.iss'
+
+      # TODO: code signing goes here once SignPath Foundation approves the
+      # project. It runs as a step between building the installer and
+      # publishing it, and consumes the artifact uploaded below.
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: VCamBench-${{ steps.version.outputs.version }}-setup
+          path: dist/VCamBench-*-setup.exe
+          if-no-files-found: error
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      # gh is preinstalled on the runner, so attaching the file needs no
+      # third-party action. The release itself is created by hand: the notes are
+      # written per release and are not worth generating.
+      - name: Attach installer to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          file=$(find artifacts -name 'VCamBench-*-setup.exe' | head -1)
+          test -n "$file" || { echo "no installer in artifacts"; exit 1; }
+          gh release upload "${{ github.ref_name }}" "$file" \
+            --repo "${{ github.repository }}" --clobber

@@ -25,3 +25,4 @@ docs/internal/
 *.pfx
 *.p12
 *.snk
+.gstack/
