@@ -25,10 +25,13 @@ permissions:
 
 jobs:
   build:
-    runs-on: windows-latest
+    # Pinned, not windows-latest. The label moved to an image carrying Visual
+    # Studio 2026 and every build broke at once, which is not something a
+    # project whose releases get signed should be exposed to.
+    runs-on: windows-2025
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Read version
         id: version
@@ -51,8 +54,16 @@ jobs:
           if ($tag -ne $file) { throw "tag v$tag does not match VERSION $file" }
           "tag and VERSION agree: $file"
 
+      # No -G. Naming the generator ties the build to one Visual Studio
+      # release, and that is exactly what broke when the runner moved from
+      # VS 2022 to VS 2026. CMake picks the newest Visual Studio it finds;
+      # -A x64 still applies. The generator is printed so a future change of
+      # toolchain is visible in the log rather than inferred from a failure.
       - name: Configure
-        run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+        shell: pwsh
+        run: |
+          cmake -S . -B build -A x64
+          Get-Content build\CMakeCache.txt | Select-String '^CMAKE_GENERATOR(_PLATFORM)?:'
 
       - name: Build
         run: cmake --build build --config Release
@@ -87,7 +98,7 @@ jobs:
       # publishing it, and consumes the artifact uploaded below.
 
       - name: Upload installer
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: VCamBench-${{ steps.version.outputs.version }}-setup
           path: dist/VCamBench-*-setup.exe
@@ -100,7 +111,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: artifacts
 

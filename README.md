@@ -90,12 +90,12 @@ LOCAL SERVICE 계정으로 돌아서 그 등록을 보지 못합니다. 실험�
 
 ## 빌드
 
-- Visual Studio 2022 (C++ 데스크톱 워크로드)
+- Visual Studio 2022 이상 (C++ 데스크톱 워크로드)
 - Windows SDK 10.0.22621 이상
 - 설치 프로그램을 만들려면 Inno Setup 6
 
 ```powershell
-cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+cmake -S . -B build -A x64
 cmake --build build --config Release
 .\build\Release\vcamcore_tests.exe
 
