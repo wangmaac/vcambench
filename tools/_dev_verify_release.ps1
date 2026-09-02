@@ -24,7 +24,8 @@ try {
     foreach ($name in @('FrameServer', 'FrameServerMonitor')) { & sc.exe stop $name | Out-Null }
     Start-Sleep -Seconds 3
 
-    $setup = Join-Path $root 'dist\VCamBench-0.1.1-setup.exe'
+    $version = (Get-Content (Join-Path $root 'VERSION') -Raw).Trim()
+    $setup = Join-Path $root "dist\VCamBench-$version-setup.exe"
     if (-not (Test-Path $setup)) { throw "설치 파일 없음: $setup" }
 
     $p = Start-Process $setup -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -Wait -PassThru

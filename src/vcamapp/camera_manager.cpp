@@ -5,6 +5,7 @@
 
 #include <algorithm>
 
+#include "strings.h"
 #include "vcamsource/vcam_guids.h"
 
 using Microsoft::WRL::ComPtr;
@@ -33,14 +34,14 @@ std::wstring FormatSystemMessage(HRESULT hr) {
 std::wstring ExplainHresult(HRESULT hr) {
   switch (hr) {
     case REGDB_E_CLASSNOTREG:
-      return L"카메라 구성요소가 등록되어 있지 않습니다. 설치를 먼저 완료하세요.";
+      return Text(Str::ErrNotRegistered);
     case E_ACCESSDENIED:
-      return L"권한이 부족합니다.";
+      return Text(Str::ErrAccessDenied);
     case MF_E_NOT_AVAILABLE:
     case E_NOTIMPL:
-      return L"이 Windows 버전은 가상 카메라를 지원하지 않습니다. Windows 11이 필요합니다.";
+      return Text(Str::ErrUnsupportedWindows);
     case MF_E_INVALIDREQUEST:
-      return L"같은 이름의 카메라가 이미 있습니다.";
+      return Text(Str::ErrDuplicateName);
     default:
       break;
   }
@@ -85,13 +86,13 @@ std::wstring CameraManager::SuggestName() const {
 
 HRESULT CameraManager::Add(const std::wstring& name, std::wstring* error) {
   if (name.empty()) {
-    if (error) *error = L"카메라 이름이 비어 있습니다.";
+    if (error) *error = Text(Str::ErrEmptyName);
     return E_INVALIDARG;
   }
   // Windows does not reject a duplicate name, it just registers a second camera
   // the user cannot tell apart. Catch it here instead.
   if (HasName(name)) {
-    if (error) *error = L"같은 이름의 카메라가 이미 있습니다.";
+    if (error) *error = Text(Str::ErrDuplicateName);
     return MF_E_INVALIDREQUEST;
   }
 
@@ -120,7 +121,7 @@ HRESULT CameraManager::Add(const std::wstring& name, std::wstring* error) {
 
 HRESULT CameraManager::RemoveAt(size_t index, std::wstring* error) {
   if (index >= cameras_.size()) {
-    if (error) *error = L"없는 카메라를 제거하려 했습니다.";
+    if (error) *error = Text(Str::ErrNoSuchCamera);
     return E_INVALIDARG;
   }
   Camera camera = std::move(cameras_[index]);

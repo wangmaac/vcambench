@@ -43,6 +43,9 @@ the same code the Store version is built from.
 2. The cameras show up in the Camera app, Chrome, Zoom, Teams, and anything else
 3. **Closing the window removes them** — they exist only while the process does
 
+The window speaks English and Korean. It follows Windows' own language on first
+run; **Language** in the menu bar overrides that, and the choice is remembered.
+
 Each camera draws its own name, a frame counter, elapsed time and a sweeping
 dial. A glance tells you whether you are looking at a live stream or a frozen
 frame.
@@ -136,8 +139,8 @@ There is no network traffic and no account. The only thing written down is a
 local diagnostic log at `%ProgramData%\VCamBench\vcamsource.log`, which never
 leaves the machine.
 
-> **Signing approval is pending.** v0.1.1 is unsigned and will trigger
-> SmartScreen. Signed releases follow once it is granted.
+> **Signing approval is pending.** Releases are unsigned for now and will
+> trigger SmartScreen. Signed releases follow once it is granted.
 
 ## License
 

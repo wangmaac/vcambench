@@ -120,6 +120,7 @@ vcam_add_version_resource(vcamsource DLL "VCamBench virtual camera media source"
 add_executable(vcamctl
   src/vcamapp/main.cpp
   src/vcamapp/camera_manager.cpp
+  src/vcamapp/strings.cpp
 )
 target_link_libraries(vcamctl PRIVATE mfsensorgroup mfplat mfuuid mf ole32 oleaut32)
 target_include_directories(vcamctl PRIVATE src include)
@@ -132,6 +133,7 @@ vcam_add_version_resource(vcamctl APP "VCamBench command line control")
 add_executable(vcambench WIN32
   src/vcamapp/gui_main.cpp
   src/vcamapp/camera_manager.cpp
+  src/vcamapp/strings.cpp
 )
 target_link_libraries(vcambench PRIVATE mfsensorgroup mfplat mfuuid mf ole32 oleaut32)
 target_include_directories(vcambench PRIVATE src include)

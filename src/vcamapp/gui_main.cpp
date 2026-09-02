@@ -13,11 +13,15 @@
 #include <string>
 
 #include "camera_manager.h"
+#include "strings.h"
 #include "vcamsource/vcam_guids.h"
 
 #pragma comment(lib, "comctl32.lib")
 
 namespace {
+
+using vcam::Str;
+using vcam::Text;
 
 enum ControlId : int {
   kIdList = 1001,
@@ -27,6 +31,11 @@ enum ControlId : int {
   kIdRemoveAll = 1005,
   kIdStatus = 1006,
   kIdHint = 1007,
+};
+
+enum MenuId : int {
+  kIdLangEnglish = 2001,
+  kIdLangKorean = 2002,
 };
 
 constexpr wchar_t kWindowClass[] = L"VCamBenchMainWindow";
@@ -100,9 +109,11 @@ void RefreshList(HWND hwnd) {
 
   std::wstring status;
   if (count == 0) {
-    status = L"카메라 없음 — 추가하면 이 PC의 카메라 목록에 나타납니다.";
+    status = Text(Str::StatusNone);
+  } else if (count == 1) {
+    status = Text(Str::StatusOne);
   } else {
-    status = L"카메라 " + std::to_wstring(count) + L"대 실행 중 — 이 창을 닫으면 사라집니다.";
+    status = vcam::TextCount(Str::StatusMany, static_cast<size_t>(count));
   }
   SetText(hwnd, kIdStatus, status);
 
@@ -132,7 +143,7 @@ void OnAdd(HWND hwnd) {
 
   std::wstring error;
   if (FAILED(g_manager->Add(name, &error))) {
-    ShowError(hwnd, L"카메라를 만들지 못했습니다.", error);
+    ShowError(hwnd, Text(Str::ErrAddFailed), error);
   }
   RefreshList(hwnd);
 }
@@ -144,7 +155,7 @@ void OnRemove(HWND hwnd) {
 
   std::wstring error;
   if (FAILED(g_manager->RemoveAt(static_cast<size_t>(index), &error))) {
-    ShowError(hwnd, L"카메라를 제거하지 못했습니다.", error);
+    ShowError(hwnd, Text(Str::ErrRemoveFailed), error);
   }
   RefreshList(hwnd);
 }
@@ -197,6 +208,47 @@ void Layout(HWND hwnd) {
   ::MoveWindow(Child(hwnd, kIdList), pad, listTop, width, listH > rowH ? listH : rowH, TRUE);
 }
 
+// --- language ---------------------------------------------------------------
+
+// Rebuilt rather than relabelled on every switch: the menu is three items, and
+// SetMenuItemInfo for each of them is more code than throwing it away.
+void InstallMenu(HWND hwnd) {
+  HMENU previous = ::GetMenu(hwnd);
+
+  HMENU languages = ::CreatePopupMenu();
+  ::AppendMenuW(languages, MF_STRING, kIdLangEnglish, Text(Str::MenuEnglish));
+  ::AppendMenuW(languages, MF_STRING, kIdLangKorean, Text(Str::MenuKorean));
+
+  HMENU bar = ::CreateMenu();
+  ::AppendMenuW(bar, MF_POPUP, reinterpret_cast<UINT_PTR>(languages), Text(Str::MenuLanguage));
+
+  ::SetMenu(hwnd, bar);
+  if (previous) ::DestroyMenu(previous);
+
+  ::CheckMenuRadioItem(bar, kIdLangEnglish, kIdLangKorean,
+                       vcam::CurrentLanguage() == vcam::Lang::Korean ? kIdLangKorean
+                                                                     : kIdLangEnglish,
+                       MF_BYCOMMAND);
+  ::DrawMenuBar(hwnd);
+}
+
+void ApplyLanguage(HWND hwnd, vcam::Lang lang) {
+  if (lang == vcam::CurrentLanguage()) return;
+  vcam::SetLanguage(lang);
+
+  InstallMenu(hwnd);
+  SetText(hwnd, kIdHint, Text(Str::Hint));
+  SetText(hwnd, kIdAdd, Text(Str::ButtonAdd));
+  SetText(hwnd, kIdRemove, Text(Str::ButtonRemove));
+  SetText(hwnd, kIdRemoveAll, Text(Str::ButtonRemoveAll));
+
+  // The status line and the suggested name both come from here, and the menu
+  // bar may have changed height, so re-lay out rather than only repainting.
+  RefreshList(hwnd);
+  Layout(hwnd);
+  ::InvalidateRect(hwnd, nullptr, TRUE);
+}
+
 void CreateControls(HWND hwnd) {
   const HINSTANCE instance =
       reinterpret_cast<HINSTANCE>(::GetWindowLongPtrW(hwnd, GWLP_HINSTANCE));
@@ -206,12 +258,12 @@ void CreateControls(HWND hwnd) {
                       reinterpret_cast<HMENU>(static_cast<INT_PTR>(id)), instance, nullptr);
   };
 
-  make(L"STATIC", L"만든 카메라는 이 PC의 모든 앱에서 일반 카메라처럼 보입니다.", 0, kIdHint);
+  make(L"STATIC", Text(Str::Hint), 0, kIdHint);
   make(L"LISTBOX", L"", WS_BORDER | WS_VSCROLL | LBS_NOTIFY, kIdList);
   make(L"EDIT", L"", WS_BORDER | ES_AUTOHSCROLL, kIdName);
-  make(L"BUTTON", L"추가", BS_DEFPUSHBUTTON, kIdAdd);
-  make(L"BUTTON", L"선택 제거", BS_PUSHBUTTON, kIdRemove);
-  make(L"BUTTON", L"모두 제거", BS_PUSHBUTTON, kIdRemoveAll);
+  make(L"BUTTON", Text(Str::ButtonAdd), BS_DEFPUSHBUTTON, kIdAdd);
+  make(L"BUTTON", Text(Str::ButtonRemove), BS_PUSHBUTTON, kIdRemove);
+  make(L"BUTTON", Text(Str::ButtonRemoveAll), BS_PUSHBUTTON, kIdRemoveAll);
   make(L"STATIC", L"", SS_LEFTNOWORDWRAP | SS_ENDELLIPSIS, kIdStatus);
 
   g_font = CreateUiFont(::GetDpiForWindow(hwnd));
@@ -222,6 +274,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam) 
   switch (message) {
     case WM_CREATE:
       CreateControls(hwnd);
+      InstallMenu(hwnd);
       RefreshList(hwnd);
       return 0;
 
@@ -246,6 +299,12 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam) 
           return 0;
         case kIdRemoveAll:
           OnRemoveAll(hwnd);
+          return 0;
+        case kIdLangEnglish:
+          ApplyLanguage(hwnd, vcam::Lang::English);
+          return 0;
+        case kIdLangKorean:
+          ApplyLanguage(hwnd, vcam::Lang::Korean);
           return 0;
         default:
           break;
@@ -273,6 +332,9 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam) 
 
 int APIENTRY wWinMain(HINSTANCE instance, HINSTANCE, LPWSTR, int showCommand) {
   ::SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+
+  // Before any string is read: picks up a previous choice, else follows Windows.
+  vcam::LoadLanguagePreference();
 
   // Held for the life of the process; released by Windows when it exits.
   HANDLE single = ::CreateMutexW(nullptr, TRUE, kSingleInstanceMutex);
