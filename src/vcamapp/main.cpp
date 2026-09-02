@@ -34,7 +34,7 @@ BOOL WINAPI ConsoleHandler(DWORD type) {
 
 void PrintList(const vcam::CameraManager& mgr) {
   if (mgr.Count() == 0) {
-    std::printf("  (없음)\n");
+    std::printf("  (none)\n");
     return;
   }
   for (size_t i = 0; i < mgr.Count(); ++i) {
@@ -44,17 +44,17 @@ void PrintList(const vcam::CameraManager& mgr) {
 
 void PrintUsage() {
   std::printf(
-      "vcamctl - 가상 카메라 관리\n"
+      "vcamctl - manage virtual cameras\n"
       "\n"
-      "  vcamctl                      대화형 모드\n"
-      "  vcamctl --count N            카메라 N개를 만들고 Enter 까지 유지\n"
-      "  vcamctl --count N --seconds S  카메라 N개를 만들고 S초 뒤 종료\n"
+      "  vcamctl                        interactive\n"
+      "  vcamctl --count N              create N cameras, hold until Enter\n"
+      "  vcamctl --count N --seconds S  create N cameras, exit after S seconds\n"
       "\n"
-      "대화형 명령: add [이름] / rm <번호> / ls / quit\n");
+      "interactive commands: add [name] / rm <number> / ls / quit\n");
 }
 
 int RunInteractive(vcam::CameraManager& mgr) {
-  std::printf("명령: add [이름] / rm <번호> / ls / quit\n\n");
+  std::printf("commands: add [name] / rm <number> / ls / quit\n\n");
   for (;;) {
     std::printf("> ");
     wchar_t line[256] = {};
@@ -75,20 +75,20 @@ int RunInteractive(vcam::CameraManager& mgr) {
       const std::wstring name = arg.empty() ? mgr.SuggestName() : arg;
       std::wstring error;
       if (SUCCEEDED(mgr.Add(name, &error))) {
-        std::printf("  + %ls  (총 %zu대)\n", name.c_str(), mgr.Count());
+        std::printf("  + %ls  (%zu total)\n", name.c_str(), mgr.Count());
       } else {
-        std::printf("  실패: %ls\n", error.c_str());
+        std::printf("  failed: %ls\n", error.c_str());
       }
     } else if (cmd == L"rm") {
       const int index = arg.empty() ? -1 : ::_wtoi(arg.c_str());
       std::wstring error;
       if (index >= 0 && SUCCEEDED(mgr.RemoveAt(static_cast<size_t>(index), &error))) {
-        std::printf("  - 제거됨 (총 %zu대)\n", mgr.Count());
+        std::printf("  - removed (%zu total)\n", mgr.Count());
       } else {
-        std::printf("  실패: %ls\n", error.empty() ? L"번호를 확인하세요." : error.c_str());
+        std::printf("  failed: %ls\n", error.empty() ? L"check the number." : error.c_str());
       }
     } else {
-      std::printf("  모르는 명령입니다. add / rm / ls / quit\n");
+      std::printf("  unknown command. add / rm / ls / quit\n");
     }
   }
   return 0;
@@ -116,12 +116,12 @@ int wmain(int argc, wchar_t** argv) {
 
   HRESULT hr = ::CoInitializeEx(nullptr, COINIT_MULTITHREADED);
   if (FAILED(hr)) {
-    std::printf("CoInitializeEx 실패: %ls\n", vcam::ExplainHresult(hr).c_str());
+    std::printf("CoInitializeEx failed: %ls\n", vcam::ExplainHresult(hr).c_str());
     return 1;
   }
   hr = ::MFStartup(MF_VERSION, MFSTARTUP_LITE);
   if (FAILED(hr)) {
-    std::printf("MFStartup 실패: %ls\n", vcam::ExplainHresult(hr).c_str());
+    std::printf("MFStartup failed: %ls\n", vcam::ExplainHresult(hr).c_str());
     ::CoUninitialize();
     return 1;
   }
@@ -130,7 +130,7 @@ int wmain(int argc, wchar_t** argv) {
   {
     std::wstring error;
     if (!vcam::CameraManager::IsSupported(&error)) {
-      std::printf("지원되지 않음: %ls\n", error.c_str());
+      std::printf("not supported: %ls\n", error.c_str());
       ::MFShutdown();
       ::CoUninitialize();
       return 1;
@@ -145,33 +145,33 @@ int wmain(int argc, wchar_t** argv) {
         if (SUCCEEDED(mgr.Add(name, &addError))) {
           std::printf("  + %ls\n", name.c_str());
         } else {
-          std::printf("  실패 (%d번째): %ls\n", i + 1, addError.c_str());
+          std::printf("  failed (camera %d): %ls\n", i + 1, addError.c_str());
           rc = 1;
           break;
         }
       }
-      std::printf("\n현재 %zu대:\n", mgr.Count());
+      std::printf("\n%zu camera(s) now:\n", mgr.Count());
       PrintList(mgr);
 
       if (seconds > 0) {
-        std::printf("\n%d초 유지 후 종료합니다.\n", seconds);
+        std::printf("\nholding for %d seconds, then exiting.\n", seconds);
         ::Sleep(static_cast<DWORD>(seconds) * 1000);
       } else {
         g_quit = ::CreateEventW(nullptr, TRUE, FALSE, nullptr);
         ::SetConsoleCtrlHandler(ConsoleHandler, TRUE);
-        std::printf("\n종료하려면 Ctrl+C 를 누르세요.\n");
+        std::printf("\npress Ctrl+C to exit.\n");
         ::WaitForSingleObject(g_quit, INFINITE);
       }
     } else {
       rc = RunInteractive(mgr);
     }
 
-    std::printf("\n정리 중...\n");
+    std::printf("\ncleaning up...\n");
     mgr.RemoveAll();
   }
 
   ::MFShutdown();
   ::CoUninitialize();
-  std::printf("완료.\n");
+  std::printf("done.\n");
   return rc;
 }

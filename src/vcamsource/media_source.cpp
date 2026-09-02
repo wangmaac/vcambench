@@ -415,7 +415,7 @@ IFACEMETHODIMP VCamActivate::ActivateObject(REFIID riid, void** object) {
     }
     if (friendlyName.empty()) {
       // Should not happen, but a nameless camera beats no camera.
-      Logf("활성화 시점에 이름이 없습니다. 속성 목록:");
+      Logf("no friendly name at activation. attributes present:");
       LogAttributes("activate attributes", attributes_.Get());
       friendlyName = VCAM_PRODUCT_NAME;
     }

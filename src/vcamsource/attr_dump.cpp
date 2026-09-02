@@ -53,7 +53,7 @@ void LogOne(IMFAttributes* attrs, UINT32 index) {
   ::PropVariantInit(&value);
 
   if (FAILED(attrs->GetItemByIndex(index, &key, &value))) {
-    Logf("    [%u] <읽기 실패>", index);
+    Logf("    [%u] <read failed>", index);
     ::PropVariantClear(&value);
     return;
   }
@@ -96,15 +96,15 @@ void LogOne(IMFAttributes* attrs, UINT32 index) {
 
 void LogAttributes(const char* what, IMFAttributes* attrs) {
   if (!attrs) {
-    Logf("  %s: (없음)", what);
+    Logf("  %s: (none)", what);
     return;
   }
   UINT32 count = 0;
   if (FAILED(attrs->GetCount(&count))) {
-    Logf("  %s: GetCount 실패", what);
+    Logf("  %s: GetCount failed", what);
     return;
   }
-  Logf("  %s: %u개", what, count);
+  Logf("  %s: %u attribute(s)", what, count);
   for (UINT32 i = 0; i < count; ++i) {
     LogOne(attrs, i);
   }

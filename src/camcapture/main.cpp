@@ -68,8 +68,8 @@ int wmain(int argc, wchar_t** argv) {
       if (frameCount < 1) frameCount = 1;
     } else {
       std::printf(
-          "usage: camcapture [--name <부분 문자열>] [--out <dir>] [--frames <n>]\n"
-          "  카메라를 일반 앱처럼 열어서 프레임을 BMP로 저장합니다.\n");
+          "usage: camcapture [--name <substring>] [--out <dir>] [--frames <n>]\n"
+          "  opens a camera the way an ordinary app does and saves frames as BMP.\n");
       return 2;
     }
   }
@@ -125,13 +125,13 @@ int wmain(int argc, wchar_t** argv) {
   ::CoTaskMemFree(devices);
 
   if (!source) {
-    std::printf("FAIL  \"%s\" 이름을 가진 카메라를 찾지 못했습니다 (총 %u개 열거됨)\n",
+    std::printf("FAIL  no camera matching \"%s\" (%u enumerated)\n",
                 ToUtf8(wanted.c_str()).c_str(), deviceCount);
     ::MFShutdown();
     ::CoUninitialize();
     return 1;
   }
-  std::printf("ok    카메라 열림: %s\n", ToUtf8(chosenName.c_str()).c_str());
+  std::printf("ok    opened: %s\n", ToUtf8(chosenName.c_str()).c_str());
 
   ComPtr<IMFSourceReader> reader;
   {
@@ -176,13 +176,13 @@ int wmain(int argc, wchar_t** argv) {
     }
   }
   if (width == 0 || height == 0) {
-    std::printf("FAIL  협상된 해상도를 읽을 수 없습니다\n");
+    std::printf("FAIL  cannot read the negotiated frame size\n");
     source->Shutdown();
     ::MFShutdown();
     ::CoUninitialize();
     return 1;
   }
-  std::printf("ok    협상된 형식: %ux%u NV12\n", width, height);
+  std::printf("ok    negotiated: %ux%u NV12\n", width, height);
 
   ::CreateDirectoryW(outDir.c_str(), nullptr);
 
@@ -205,14 +205,14 @@ int wmain(int argc, wchar_t** argv) {
       break;
     }
     if (flags & MF_SOURCE_READERF_ENDOFSTREAM) {
-      std::printf("FAIL  스트림이 예상보다 일찍 끝났습니다\n");
+      std::printf("FAIL  stream ended earlier than expected\n");
       ++failures;
       break;
     }
     if (!sample) continue;  // a gap or a format change: ask again
 
     if (previousTime >= 0 && timestamp < previousTime) {
-      std::printf("FAIL  타임스탬프가 뒤로 갔습니다 (%lld -> %lld)\n", previousTime, timestamp);
+      std::printf("FAIL  timestamp went backwards (%lld -> %lld)\n", previousTime, timestamp);
       ++failures;
     }
     previousTime = timestamp;
@@ -245,20 +245,20 @@ int wmain(int argc, wchar_t** argv) {
         ++saved;
       }
     } else {
-      std::printf("FAIL  프레임 %d 크기 %lu, 기대값 %zu\n", i, currentLength, expected);
+      std::printf("FAIL  frame %d is %lu bytes, expected %zu\n", i, currentLength, expected);
       ++failures;
     }
     buffer->Unlock();
     ++i;
   }
 
-  std::printf("\n      %d프레임 저장, 연속 프레임 중 %d쌍이 서로 다름\n", saved, changed);
+  std::printf("\n      %d frame(s) saved, %d consecutive pair(s) differ\n", saved, changed);
   if (saved != frameCount) {
-    std::printf("FAIL  %d/%d 프레임만 수신\n", saved, frameCount);
+    std::printf("FAIL  only received %d of %d frames\n", saved, frameCount);
     ++failures;
   }
   if (frameCount > 1 && changed == 0) {
-    std::printf("FAIL  화면이 전혀 변하지 않았습니다 - 정지 상태로 보입니다\n");
+    std::printf("FAIL  the picture never changed - it looks frozen\n");
     ++failures;
   }
 
